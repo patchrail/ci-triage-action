@@ -1,5 +1,5 @@
 name: 'PatchRail CI Triage'
-description: 'Classify a failed CI log locally and link the matching PatchRail /fix remediation guide. Read-only: no PR, no comment, nothing leaves the runner.'
+description: 'Classify a failed CI log locally and link the matching PatchRail /fix guide. Read-only, nothing leaves the runner.'
 author: 'PatchRail'
 branding:
   icon: 'activity'
