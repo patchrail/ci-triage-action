@@ -6,8 +6,8 @@ annotation and step summary. Read-only by design: it never opens a pull request,
 posts a comment, claims funding, or sends your logs anywhere.
 
 It wraps the [`patchrail`](https://pypi.org/project/patchrail/) CLI's offline
-classifier (100+ failure signatures across Python, Node, Go, Rust, Java, Ruby,
-PHP, .NET, Docker, GitHub Actions and more).
+`patchrail ci explain` command (100+ failure signatures across Python, Node, Go,
+Rust, Java, Ruby, PHP, .NET, Docker, GitHub Actions and more).
 
 ## Usage
 
@@ -39,7 +39,7 @@ the [CI Failure Triage Patterns pack](https://patchrail.gumroad.com/l/ci-failure
 
 | Input | Default | Description |
 | --- | --- | --- |
-| `log-path` | `''` | Path to the CI log file to classify. |
+| `log-path` | `''` | Path to the CI log file to explain. |
 | `log-text` | `''` | Raw log text, used when no file is available. |
 | `redact` | `'true'` | Redact secrets, emails and home paths locally first. |
 | `patchrail-version` | `''` | Pin a specific `patchrail` version from PyPI. |

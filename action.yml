@@ -1,5 +1,5 @@
 name: 'PatchRail CI Triage'
-description: 'Classify a failed CI log locally and link the matching PatchRail /fix guide. Read-only, nothing leaves the runner.'
+description: 'Explain a failed CI log locally and link the matching PatchRail /fix guide. Read-only, nothing leaves the runner.'
 author: 'PatchRail'
 branding:
   icon: 'activity'
@@ -7,11 +7,11 @@ branding:
 
 inputs:
   log-path:
-    description: 'Path to the CI log file to classify. Leave empty to use log-text instead.'
+    description: 'Path to the CI log file to explain. Leave empty to use log-text instead.'
     required: false
     default: ''
   log-text:
-    description: 'Raw log text to classify when no log file is available.'
+    description: 'Raw log text to explain when no log file is available.'
     required: false
     default: ''
   redact:
@@ -29,10 +29,10 @@ inputs:
 
 outputs:
   failure-class:
-    description: 'The classified CI failure class (e.g. python-test-failure).'
+    description: 'The explained CI failure class (e.g. python-test-failure).'
     value: ${{ steps.triage.outputs.failure-class }}
   confidence:
-    description: 'Classifier confidence between 0 and 1.'
+    description: 'Explanation confidence between 0 and 1.'
     value: ${{ steps.triage.outputs.confidence }}
   guide-url:
     description: 'PatchRail /fix remediation guide URL for the failure class.'
@@ -55,7 +55,7 @@ runs:
           python -m pip install --quiet patchrail
         fi
 
-    - name: Classify failure and annotate
+    - name: Explain failure and annotate
       id: triage
       shell: bash
       env:
@@ -82,7 +82,7 @@ runs:
           REDACT_FLAG="--redact"
         fi
 
-        patchrail ci classify ${REDACT_FLAG} --log "${LOG_FILE}" --format json --out patchrail-ci-result.json
+        patchrail ci explain ${REDACT_FLAG} --log "${LOG_FILE}" --format json --out patchrail-ci-result.json
 
         # Build the guide URL with utm_source=action and emit the annotation + summary.
         python "${GITHUB_ACTION_PATH}/scripts/annotate.py" patchrail-ci-result.json
