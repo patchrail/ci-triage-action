@@ -29,6 +29,6 @@ jobs:
           echo "guide-url=${{ steps.triage.outputs.guide-url }}"
           test -n "${{ steps.triage.outputs.failure-class }}"
           case "${{ steps.triage.outputs.guide-url }}" in
-            https://getpatchrail.com/fix*utm_source=action*) echo "OK" ;;
+            https://getpatchrail.com/fix*) echo "OK" ;;
             *) echo "unexpected guide-url"; exit 1 ;;
           esac

@@ -84,5 +84,5 @@ runs:
 
         patchrail ci explain ${REDACT_FLAG} --log "${LOG_FILE}" --format json --out patchrail-ci-result.json
 
-        # Build the guide URL with utm_source=action and emit the annotation + summary.
+        # Build the guide URL and emit the annotation + summary.
         python "${GITHUB_ACTION_PATH}/scripts/annotate.py" patchrail-ci-result.json

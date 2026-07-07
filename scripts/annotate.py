@@ -56,8 +56,8 @@ FIX_GUIDE_SLUGS = frozenset(
 def guide_url(failure_class: str) -> str:
     slug = str(failure_class or "").replace("_", "-")
     if slug and slug in FIX_GUIDE_SLUGS:
-        return f"{FIX_GUIDE_BASE}/{slug}?utm_source=action&utm_campaign={slug}"
-    return f"{FIX_GUIDE_BASE}?utm_source=action"
+        return f"{FIX_GUIDE_BASE}/{slug}"
+    return FIX_GUIDE_BASE
 
 
 def write_kv(path_env: str, lines: list[str]) -> None:
