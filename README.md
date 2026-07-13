@@ -7,7 +7,9 @@ posts a comment, claims funding, or sends your logs anywhere.
 
 It wraps the [`patchrail`](https://pypi.org/project/patchrail/) CLI's offline
 `patchrail ci explain` command (100+ failure signatures across Python, Node, Go,
-Rust, Java, Ruby, PHP, .NET, Docker, GitHub Actions and more).
+Rust, Java, Ruby, PHP, .NET, Docker, GitHub Actions and more). PatchRail is open
+source (Apache-2.0) — the CLI, the failure-signature zoo and the issue tracker
+live at **[github.com/patchrail/patchrail](https://github.com/patchrail/patchrail)**.
 
 ## Usage
 
@@ -87,6 +89,7 @@ uploaded.
 
 ---
 
-Maintained by **Pablo Guillén · PatchRail · [getpatchrail.com](https://getpatchrail.com)**.
+Part of the open-source [**PatchRail**](https://github.com/patchrail/patchrail)
+project. Maintained by **Pablo Guillén · PatchRail · [getpatchrail.com](https://getpatchrail.com)**.
 
 Licensed under the Apache License 2.0.
