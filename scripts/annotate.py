@@ -13,6 +13,13 @@ import sys
 
 FIX_GUIDE_BASE = "https://getpatchrail.com/fix"
 
+# The ci-result contract this action knows how to read. patchrail ships breaking
+# JSON contract changes in minor bumps (0.4.0 moved `ci classes` to schema v2),
+# and every field below is read with `.get()`, so a renamed key would not raise:
+# it would quietly annotate `unknown (confidence None)` on a run that is already
+# red. Refuse a schema we do not know instead of inventing a classification.
+RESULT_SCHEMA = "patchrail.ci_result.v1"
+
 # Shown whenever there is no log to classify. Both halves matter: without
 # `2>&1` a tool that reports only on stderr leaves an empty log, and without
 # pipefail (`shell: bash`) a failing command piped into `tee` exits 0, so the
@@ -106,6 +113,38 @@ def unclassified(reason: str) -> int:
     return 0
 
 
+def incompatible_schema(found: str) -> int:
+    """Report that the installed patchrail speaks a contract this action cannot read.
+
+    Same contract as `unclassified`: one annotation line, empty outputs, the guide
+    index, exit 0. Naming both versions is the point — the alternative is an
+    `unknown (confidence None)` annotation that looks like a real classification
+    and tells the user nothing about why their pinned action stopped working.
+    """
+    found = " ".join(str(found or "").split()) or "none"
+    reason = (
+        f"the installed patchrail emits ci-result schema '{found}', "
+        f"and this action reads '{RESULT_SCHEMA}'. Pin a compatible release with "
+        f"the `patchrail-version` input, or upgrade patchrail-ci-triage."
+    )
+    print(f"::warning title=PatchRail CI Triage::No classification: {reason}")
+    write_kv(
+        "GITHUB_STEP_SUMMARY",
+        [
+            "## PatchRail CI Triage",
+            "",
+            f"- **No classification:** {reason}",
+            "",
+            "_Classified locally. No pull request, comment or external call was made._",
+        ],
+    )
+    write_kv(
+        "GITHUB_OUTPUT",
+        ["failure-class=", "confidence=", f"guide-url={FIX_GUIDE_BASE}"],
+    )
+    return 0
+
+
 def main() -> int:
     argv = sys.argv[1:]
     if argv and argv[0] == "--unclassified":
@@ -114,6 +153,9 @@ def main() -> int:
     result_path = argv[0] if argv else "patchrail-ci-result.json"
     with open(result_path, encoding="utf-8") as handle:
         result = json.load(handle)
+
+    if result.get("schema_version") != RESULT_SCHEMA:
+        return incompatible_schema(result.get("schema_version"))
 
     failure_class = str(result.get("failure_class") or "unknown")
     confidence = result.get("confidence")

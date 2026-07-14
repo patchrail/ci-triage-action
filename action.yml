@@ -19,7 +19,7 @@ inputs:
     required: false
     default: 'true'
   patchrail-version:
-    description: 'Pin a specific patchrail version from PyPI (defaults to latest).'
+    description: 'Pin an exact patchrail version from PyPI. Defaults to the range this action is tested against.'
     required: false
     default: ''
   python-version:
@@ -52,7 +52,12 @@ runs:
         if [ -n "${{ inputs.patchrail-version }}" ]; then
           python -m pip install --quiet "patchrail==${{ inputs.patchrail-version }}"
         else
-          python -m pip install --quiet patchrail
+          # Bounded on purpose. patchrail ships breaking JSON contract changes in
+          # minor bumps, so an unpinned install would put the next one straight
+          # into every consumer's CI with no commit here to review it. The
+          # `latest-patchrail` job in .github/workflows/test.yml runs this same
+          # path against the newest release, so the range moves deliberately.
+          python -m pip install --quiet "patchrail>=0.3.1,<0.5.0"
         fi
 
     - name: Explain failure and annotate
