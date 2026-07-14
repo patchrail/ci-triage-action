@@ -14,8 +14,9 @@ import sys
 FIX_GUIDE_BASE = "https://getpatchrail.com/fix"
 
 # Failure classes with a dedicated /fix/<slug> remediation guide on getpatchrail.com.
-# Unknown or unlisted classes link to the guide index instead. Mirrors
-# patchrail.cli._FIX_GUIDE_SLUGS so the action links the same pages as the CLI.
+# Unknown or unlisted classes link to the guide index instead, never to a 404.
+# Every entry must be a real `patchrail ci classes` slug AND a published guide;
+# tests/test_fix_guide_slugs.py checks both and fails if this list drifts.
 FIX_GUIDE_SLUGS = frozenset(
     {
         "artifact-or-cache-failure",
