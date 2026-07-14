@@ -26,7 +26,7 @@ GUIDE_INDEX = "https://getpatchrail.com/fix"
 # test agree with any future edit to it, which is the drift it exists to catch.
 SUPPORTED_SCHEMA = "patchrail.ci_result.v1"
 
-# What patchrail emits today (verified against 0.3.1 and 0.4.0).
+# What patchrail emits today (verified against 0.3.1, 0.4.0 and 0.5.0).
 V1_RESULT = {
     "schema_version": SUPPORTED_SCHEMA,
     "failure_class": "python_test_failure",
