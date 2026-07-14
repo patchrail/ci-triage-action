@@ -34,6 +34,15 @@ step guarded by `if: failure()`. On a red run you get an annotation like
 `python-test-failure (confidence 0.89) — guide: getpatchrail.com/fix/...` plus a
 job summary block.
 
+When no rule matches the log, the class stays `unknown` — PatchRail does not
+guess — but the annotation hands back the line the runner itself flagged for the
+failing step, so you still land on the error instead of on "no signal found":
+
+```
+unknown (confidence 0.15) — runner reported: "github-token" length must be less
+than or equal to 100 characters long — guide: getpatchrail.com/fix
+```
+
 ### Capturing the log correctly
 
 The capture step above is deliberate in two ways, and both matter:
