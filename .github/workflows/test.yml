@@ -23,8 +23,20 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install patchrail and pytest
-        run: python -m pip install --upgrade patchrail pytest pyyaml
+      # Test the range the action actually installs, read straight out of
+      # action.yml so the two cannot drift. Installing the newest patchrail here
+      # instead would tie this repo's release train to upstream: a breaking
+      # release would turn this job red and, through `sync-v1`, stop merged fixes
+      # from ever reaching `@v1` users. `latest-patchrail` is where the newest
+      # release gets tested, and it is deliberately not a gate on the tag.
+      - name: Install the patchrail range the action ships, plus pytest
+        shell: bash
+        run: |
+          set -euo pipefail
+          spec="$(grep -o 'patchrail>=[^"]*' action.yml)"
+          test -n "${spec}"
+          echo "action.yml installs: ${spec}"
+          python -m pip install --upgrade "${spec}" pytest pyyaml
 
       - name: Check the guide slugs, the README snippets and the no-log path
         run: python -m pytest -q
@@ -46,11 +58,13 @@ jobs:
           set -euo pipefail
           echo "failure-class=${{ steps.triage.outputs.failure-class }}"
           echo "guide-url=${{ steps.triage.outputs.guide-url }}"
-          test -n "${{ steps.triage.outputs.failure-class }}"
-          case "${{ steps.triage.outputs.guide-url }}" in
-            https://getpatchrail.com/fix*) echo "OK" ;;
-            *) echo "unexpected guide-url"; exit 1 ;;
-          esac
+          # Assert the class the sample log actually is, and the guide for it.
+          # A `test -n` on the class and a `fix*` glob on the URL both pass on a
+          # degraded `unknown` + bare-index result, which is exactly the output a
+          # contract drift produces: the assertion has to be able to see it.
+          test "${{ steps.triage.outputs.failure-class }}" = "python_test_failure"
+          test "${{ steps.triage.outputs.guide-url }}" = "https://getpatchrail.com/fix/python-test-failure"
+          echo "OK"
 
   # A capture that drops stderr leaves an empty log, and a step that dies early
   # leaves no log at all. Both land on an already-red run, so the action must
@@ -87,6 +101,41 @@ jobs:
           test "${{ steps.empty.outputs.guide-url }}" = "https://getpatchrail.com/fix"
           test "${{ steps.missing.outputs.guide-url }}" = "https://getpatchrail.com/fix"
           echo "OK: no classification, no extra failure"
+
+  # The action installs a bounded patchrail range, so a breaking release cannot
+  # reach consumers on its own. It must not reach them by surprise either: this
+  # runs the real explain -> annotate path against the NEWEST patchrail on PyPI,
+  # on every push and weekly. When it goes red, a new release changed the
+  # contract, and the range in action.yml gets widened deliberately (or the
+  # reader gets fixed) instead of users discovering it in their own red builds.
+  latest-patchrail:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the newest patchrail from PyPI
+        run: python -m pip install --upgrade patchrail
+
+      - name: Explain the sample failure and annotate, as the action does
+        shell: bash
+        run: |
+          set -euo pipefail
+          patchrail --version
+          patchrail ci explain --log examples/sample-failure.log \
+            --format json --out result.json
+          python scripts/annotate.py result.json | tee annotation.txt
+
+          if grep -q "No classification" annotation.txt; then
+            echo "::error::the newest patchrail no longer emits the ci-result schema this action reads; update scripts/annotate.py and the range in action.yml"
+            exit 1
+          fi
+          grep -q "python_test_failure" annotation.txt
+          grep -q "fix/python-test-failure" annotation.txt
+          echo "OK: the newest patchrail still matches the contract"
 
   # Everyone uses `patchrail/ci-triage-action@v1`, but the jobs above test the
   # commit, not the tag. Without this the two drift apart in silence: a merged
