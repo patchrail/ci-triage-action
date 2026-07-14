@@ -20,6 +20,12 @@ FIX_GUIDE_BASE = "https://getpatchrail.com/fix"
 # red. Refuse a schema we do not know instead of inventing a classification.
 RESULT_SCHEMA = "patchrail.ci_result.v1"
 
+# What one `unknown` verdict may drag into the annotation. patchrail already
+# de-duplicates and caps `runner_errors`, but the content is log text: a matrix
+# build emits one annotation per leg, and a single line can be a whole stack trace.
+RUNNER_ERROR_LIMIT = 3
+RUNNER_ERROR_MAX_CHARS = 200
+
 # Shown whenever there is no log to classify. Both halves matter: without
 # `2>&1` a tool that reports only on stderr leaves an empty log, and without
 # pipefail (`shell: bash`) a failing command piped into `tee` exits 0, so the
@@ -76,6 +82,49 @@ def guide_url(failure_class: str) -> str:
     if slug and slug in FIX_GUIDE_SLUGS:
         return f"{FIX_GUIDE_BASE}/{slug}"
     return FIX_GUIDE_BASE
+
+
+def runner_errors(result: dict) -> list[str]:
+    """The lines the runner itself flagged, as patchrail 0.6.0 reports them.
+
+    Only present on an `unknown` result: when no rule matches, patchrail hands back
+    the runner's own annotation for the failing step (`##[error]…`), so the job can
+    say *where* it died even when PatchRail cannot say *why*. Without this, `unknown`
+    annotates a red run with `inspect CI log and run the failing job locally` — the
+    user learns nothing they would not have learned by never running the action.
+
+    Absent on a classified result (its `signals` already explain it) and on any
+    patchrail below 0.6.0, which the `patchrail-version` input still allows: an
+    older release simply has no such key and this returns nothing.
+    """
+    reported = result.get("runner_errors")
+    if not isinstance(reported, list):
+        return []
+    lines = []
+    for entry in reported[:RUNNER_ERROR_LIMIT]:
+        # Log text, so it arrives with whatever shape the failing build gave it.
+        line = " ".join(str(entry).split())
+        if not line:
+            continue
+        if len(line) > RUNNER_ERROR_MAX_CHARS:
+            line = line[: RUNNER_ERROR_MAX_CHARS - 1].rstrip() + "…"
+        lines.append(line)
+    return lines
+
+
+def annotation_safe(text: str) -> str:
+    """Escape log text for a workflow command, `%` first.
+
+    GitHub decodes `%0A` in a `::warning::` message back into a newline, and this
+    text is a line from a build any PR author can write. Left raw, a log containing
+    `%0A::error::<anything>` would close our annotation and forge a second one.
+    """
+    return text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
+def summary_safe(text: str) -> str:
+    """Keep log text inside its code span in the job summary, instead of formatting it."""
+    return text.replace("`", "'")
 
 
 def write_kv(path_env: str, lines: list[str]) -> None:
@@ -162,13 +211,15 @@ def main() -> int:
     subsystem = result.get("likely_subsystem") or "unknown"
     repro = result.get("reproduction_command") or ""
     strategy = result.get("minimal_repair_strategy") or ""
+    reported = runner_errors(result)
     url = guide_url(failure_class)
 
-    # GitHub annotation (shows up inline on the run).
-    print(
-        f"::warning title=PatchRail CI Triage::{failure_class} "
-        f"(confidence {confidence}) — guide: {url}"
-    )
+    # GitHub annotation (shows up inline on the run). One line, always: GitHub reads
+    # one annotation per line, so the runner's line is escaped, never appended raw.
+    headline = f"{failure_class} (confidence {confidence})"
+    if reported:
+        headline += f" — runner reported: {annotation_safe(reported[0])}"
+    print(f"::warning title=PatchRail CI Triage::{headline} — guide: {url}")
 
     # Job summary.
     summary = [
@@ -178,6 +229,11 @@ def main() -> int:
         f"- **Confidence:** `{confidence}`",
         f"- **Subsystem:** {subsystem}",
     ]
+    # On an `unknown` verdict this is the only line in the summary worth reading, so
+    # it goes above the generic "reproduce it locally" advice, not below it.
+    if reported:
+        summary.append("- **Errors the runner reported:**")
+        summary += [f"  - `{summary_safe(line)}`" for line in reported]
     if repro:
         summary.append(f"- **Reproduce:** `{repro}`")
     if strategy:
