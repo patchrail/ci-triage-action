@@ -24,9 +24,9 @@ jobs:
           python-version: "3.12"
 
       - name: Install patchrail and pytest
-        run: python -m pip install --upgrade patchrail pytest
+        run: python -m pip install --upgrade patchrail pytest pyyaml
 
-      - name: Check the guide slugs against the CLI and the published guides
+      - name: Check the guide slugs, the README snippets and the no-log path
         run: python -m pytest -q
 
   smoke:
@@ -52,13 +52,49 @@ jobs:
             *) echo "unexpected guide-url"; exit 1 ;;
           esac
 
+  # A capture that drops stderr leaves an empty log, and a step that dies early
+  # leaves no log at all. Both land on an already-red run, so the action must
+  # explain itself and stay green instead of adding a second, meaningless
+  # failure. Exercised end-to-end here because it is the shell in action.yml,
+  # not the Python, that decides whether the step survives.
+  smoke-no-log:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create an empty log, as a capture without 2>&1 would
+        shell: bash
+        run: ': > empty.log'
+
+      - name: Run the action against the empty log
+        id: empty
+        uses: ./
+        with:
+          log-path: empty.log
+
+      - name: Run the action against a log that was never written
+        id: missing
+        uses: ./
+        with:
+          log-path: never-created.log
+
+      - name: Assert neither run failed the job, and both said why
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${{ steps.empty.outputs.failure-class }}"
+          test -z "${{ steps.missing.outputs.failure-class }}"
+          test "${{ steps.empty.outputs.guide-url }}" = "https://getpatchrail.com/fix"
+          test "${{ steps.missing.outputs.guide-url }}" = "https://getpatchrail.com/fix"
+          echo "OK: no classification, no extra failure"
+
   # Everyone uses `patchrail/ci-triage-action@v1`, but the jobs above test the
   # commit, not the tag. Without this the two drift apart in silence: a merged
   # fix stays invisible to every user while CI keeps reporting green. Move the
-  # floating tag to each main commit that passed both jobs, so `@v1` is always
+  # floating tag to each main commit that passed the tests, so `@v1` is always
   # the newest tested code.
   sync-v1:
-    needs: [fix-guide-slugs, smoke]
+    needs: [fix-guide-slugs, smoke, smoke-no-log]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:

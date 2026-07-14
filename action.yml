@@ -65,9 +65,17 @@ runs:
       run: |
         set -euo pipefail
 
+        # A missing or empty log is a capture mistake, not a reason to add a
+        # second red step to an already-failing run: annotate why and stop.
+        annotate() { python "${GITHUB_ACTION_PATH}/scripts/annotate.py" "$@"; }
+
         # Resolve the log source: file path takes precedence, else inline text.
         LOG_FILE=""
-        if [ -n "${PATCHRAIL_LOG_PATH}" ] && [ -f "${PATCHRAIL_LOG_PATH}" ]; then
+        if [ -n "${PATCHRAIL_LOG_PATH}" ]; then
+          if [ ! -f "${PATCHRAIL_LOG_PATH}" ]; then
+            annotate --unclassified "log-path '${PATCHRAIL_LOG_PATH}' does not exist on the runner; the step that writes it may have died before creating it."
+            exit 0
+          fi
           LOG_FILE="${PATCHRAIL_LOG_PATH}"
         elif [ -n "${PATCHRAIL_LOG_TEXT}" ]; then
           LOG_FILE="$(mktemp)"
@@ -82,7 +90,14 @@ runs:
           REDACT_FLAG="--redact"
         fi
 
-        patchrail ci explain ${REDACT_FLAG} --log "${LOG_FILE}" --format json --out patchrail-ci-result.json
+        # `ci explain` exits non-zero on an empty log (the usual symptom of a
+        # capture that dropped stderr). Keep its message, then annotate.
+        ERR_FILE="$(mktemp)"
+        if ! patchrail ci explain ${REDACT_FLAG} --log "${LOG_FILE}" --format json --out patchrail-ci-result.json 2>"${ERR_FILE}"; then
+          cat "${ERR_FILE}" >&2
+          annotate --unclassified "$(cat "${ERR_FILE}")"
+          exit 0
+        fi
 
         # Build the guide URL and emit the annotation + summary.
-        python "${GITHUB_ACTION_PATH}/scripts/annotate.py" patchrail-ci-result.json
+        annotate patchrail-ci-result.json
