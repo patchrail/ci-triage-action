@@ -57,7 +57,11 @@ runs:
           # into every consumer's CI with no commit here to review it. The
           # `latest-patchrail` job in .github/workflows/test.yml runs this same
           # path against the newest release, so the range moves deliberately.
-          python -m pip install --quiet "patchrail>=0.3.1,<0.5.0"
+          #
+          # Floor is 0.5.0: every release below it reads a tool the job merely
+          # named — a `GRADLE_HOME=` line, a `Collecting mypy` from pip — as the
+          # cause of death, so it annotates the PR with a confident wrong answer.
+          python -m pip install --quiet "patchrail>=0.5.0,<0.6.0"
         fi
 
     - name: Explain failure and annotate
