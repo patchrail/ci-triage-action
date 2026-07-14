@@ -34,6 +34,17 @@ step guarded by `if: failure()`. On a red run you get an annotation like
 `python-test-failure (confidence 0.89) — guide: getpatchrail.com/fix/...` plus a
 job summary block.
 
+### Which ref to pin
+
+`@v1` is a moving tag: it points at the latest commit on `main` that passed the
+test suite, and it will keep moving within the v1 line (no breaking changes to
+inputs or outputs). If you would rather review every change yourself, pin the
+full commit SHA instead:
+
+```yaml
+uses: patchrail/ci-triage-action@<commit-sha>
+```
+
 ## Inputs
 
 | Input | Default | Description |
