@@ -51,3 +51,25 @@ jobs:
             https://getpatchrail.com/fix*) echo "OK" ;;
             *) echo "unexpected guide-url"; exit 1 ;;
           esac
+
+  # Everyone uses `patchrail/ci-triage-action@v1`, but the jobs above test the
+  # commit, not the tag. Without this the two drift apart in silence: a merged
+  # fix stays invisible to every user while CI keeps reporting green. Move the
+  # floating tag to each main commit that passed both jobs, so `@v1` is always
+  # the newest tested code.
+  sync-v1:
+    needs: [fix-guide-slugs, smoke]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fast-forward the v1 tag to the tested commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git tag -f v1 "${GITHUB_SHA}"
+          git push --force origin refs/tags/v1
+          echo "v1 -> ${GITHUB_SHA}"
