@@ -20,8 +20,8 @@ or test log.
 
 ```yaml
 - name: Build
-  id: build
-  run: make build
+  shell: bash
+  run: make build 2>&1 | tee build.log
 - name: PatchRail CI triage
   if: failure()
   uses: patchrail/ci-triage-action@v1
@@ -29,10 +29,27 @@ or test log.
     log-path: build.log
 ```
 
-That's the whole thing: pipe your build/test output to a file, then add the
+That's the whole thing: capture your build/test output to a file, then add the
 step guarded by `if: failure()`. On a red run you get an annotation like
 `python-test-failure (confidence 0.89) — guide: getpatchrail.com/fix/...` plus a
 job summary block.
+
+### Capturing the log correctly
+
+The capture step above is deliberate in two ways, and both matter:
+
+- **`shell: bash`** runs the step with `-o pipefail`. The default `run:` shell is
+  `bash -e`, where a pipeline reports the status of its *last* command — so
+  `make build | tee build.log` exits `0` **even when the build fails**. The step
+  would go green, `if: failure()` would never fire, and your broken build would
+  sail through CI. With `shell: bash`, a failing command still fails the step.
+- **`2>&1`** puts stderr in the log. Plenty of tools (compilers, linters, `mypy`,
+  `cargo`) report errors only on stderr; without the redirect the log ends up
+  empty and there is nothing to classify.
+
+If the log is missing or empty anyway, the action says so in an annotation and
+leaves the step green — it will not stack a second failure on top of the one you
+are already debugging.
 
 ### Which ref to pin
 
@@ -65,6 +82,9 @@ Provide either `log-path` (preferred) or `log-text`.
 | `confidence` | Classifier confidence between 0 and 1. |
 | `guide-url` | PatchRail `/fix` remediation guide URL for the class. |
 
+When there is no log to classify (the file is missing or empty), `failure-class`
+and `confidence` are empty and `guide-url` is the guide index.
+
 ## Example: capture the log and triage on failure
 
 ```yaml
@@ -74,7 +94,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run tests
-        run: pytest -q | tee test.log
+        shell: bash
+        run: pytest -q 2>&1 | tee test.log
       - name: PatchRail CI triage
         if: failure()
         uses: patchrail/ci-triage-action@v1

@@ -13,6 +13,16 @@ import sys
 
 FIX_GUIDE_BASE = "https://getpatchrail.com/fix"
 
+# Shown whenever there is no log to classify. Both halves matter: without
+# `2>&1` a tool that reports only on stderr leaves an empty log, and without
+# pipefail (`shell: bash`) a failing command piped into `tee` exits 0, so the
+# step goes green and `if: failure()` never fires.
+CAPTURE_HINT = (
+    "Capture the failing command like this: "
+    "`shell: bash` + `your-command 2>&1 | tee build.log` "
+    "(stderr included, and pipefail keeps the step red)."
+)
+
 # Failure classes with a dedicated /fix/<slug> remediation guide on getpatchrail.com.
 # Unknown or unlisted classes link to the guide index instead, never to a 404.
 # Every entry must be a real `patchrail ci classes` slug AND a published guide;
@@ -69,8 +79,39 @@ def write_kv(path_env: str, lines: list[str]) -> None:
         handle.write("\n".join(lines) + "\n")
 
 
+def unclassified(reason: str) -> int:
+    """Report that there was no log to classify, without failing the job.
+
+    This runs under `if: failure()`, on a run that is already red. A second red
+    step with a raw exit code buries the failure the user actually came to see,
+    so surface the cause as a warning and leave the outputs empty.
+    """
+    reason = " ".join(str(reason or "no log to classify").split())
+    print(f"::warning title=PatchRail CI Triage::No classification: {reason} {CAPTURE_HINT}")
+    write_kv(
+        "GITHUB_STEP_SUMMARY",
+        [
+            "## PatchRail CI Triage",
+            "",
+            f"- **No classification:** {reason}",
+            f"- **How to fix the capture:** {CAPTURE_HINT}",
+            "",
+            "_Classified locally. No pull request, comment or external call was made._",
+        ],
+    )
+    write_kv(
+        "GITHUB_OUTPUT",
+        ["failure-class=", "confidence=", f"guide-url={FIX_GUIDE_BASE}"],
+    )
+    return 0
+
+
 def main() -> int:
-    result_path = sys.argv[1] if len(sys.argv) > 1 else "patchrail-ci-result.json"
+    argv = sys.argv[1:]
+    if argv and argv[0] == "--unclassified":
+        return unclassified(argv[1] if len(argv) > 1 else "")
+
+    result_path = argv[0] if argv else "patchrail-ci-result.json"
     with open(result_path, encoding="utf-8") as handle:
         result = json.load(handle)
 
