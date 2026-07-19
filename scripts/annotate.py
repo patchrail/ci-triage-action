@@ -36,6 +36,18 @@ CAPTURE_HINT = (
     "(stderr included, and pipefail keeps the step red)."
 )
 
+# Closes every job summary, classified or not. The summary sits on the runner of
+# someone else's red build, so it is the one surface where a maintainer reading the
+# annotation can find the project behind it — carry a plain repo backlink. It stays
+# inside the read-only promise: text written to $GITHUB_STEP_SUMMARY, no PR, no
+# comment, no network. A link, never a "star us" ask; the run is not ours to campaign on.
+SUMMARY_FOOTER = [
+    "",
+    "_Powered by [PatchRail](https://github.com/patchrail/patchrail) — "
+    "open-source, local-first CI failure triage._",
+    "_Classified locally. No pull request, comment or external call was made._",
+]
+
 # Failure classes with a dedicated /fix/<slug> remediation guide on getpatchrail.com.
 # Unknown or unlisted classes link to the guide index instead, never to a 404.
 # Every entry must be a real `patchrail ci classes` slug AND a published guide;
@@ -151,8 +163,7 @@ def unclassified(reason: str) -> int:
             "",
             f"- **No classification:** {reason}",
             f"- **How to fix the capture:** {CAPTURE_HINT}",
-            "",
-            "_Classified locally. No pull request, comment or external call was made._",
+            *SUMMARY_FOOTER,
         ],
     )
     write_kv(
@@ -183,8 +194,7 @@ def incompatible_schema(found: str) -> int:
             "## PatchRail CI Triage",
             "",
             f"- **No classification:** {reason}",
-            "",
-            "_Classified locally. No pull request, comment or external call was made._",
+            *SUMMARY_FOOTER,
         ],
     )
     write_kv(
@@ -240,8 +250,7 @@ def main() -> int:
         summary.append(f"- **Suggested action:** {strategy}")
     summary += [
         f"- **Remediation guide:** {url}",
-        "",
-        "_Classified locally. No pull request, comment or external call was made._",
+        *SUMMARY_FOOTER,
     ]
     write_kv("GITHUB_STEP_SUMMARY", summary)
 
