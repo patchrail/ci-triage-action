@@ -64,7 +64,7 @@ runs:
           # wrong answer. 0.6.0 also reports the runner's own `##[error]` line on an
           # `unknown` verdict, which is the only thing that makes an unclassified run
           # worth annotating at all; `scripts/annotate.py` surfaces it.
-          python -m pip install --quiet "patchrail>=0.6.0,<0.7.0"
+          python -m pip install --quiet "patchrail>=0.6.0,<0.8.0"
         fi
 
     - name: Explain failure and annotate
